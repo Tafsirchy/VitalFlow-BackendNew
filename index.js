@@ -104,13 +104,13 @@ async function run() {
     //   res.send(result);
     // });
 
-    // // add request data to database
-    // app.post("/requests", verifyFbToken, async (req, res) => {
-    //   const requestInfo = req.body;
-    //   requestInfo.createdAt = new Date();
-    //   const result = await requestCollection.insertOne(requestInfo);
-    //   res.send(result);
-    // });
+    // add request data to database
+    app.post("/requests", verifyFbToken, async (req, res) => {
+      const requestInfo = req.body;
+      requestInfo.createdAt = new Date();
+      const result = await requestCollection.insertOne(requestInfo);
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
