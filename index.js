@@ -75,23 +75,23 @@ async function run() {
     //   res.status(200).send(result);
     // });
 
-    // // check & set donor status from database
-    // app.patch("/update/donor/status", verifyFbToken, async (req, res) => {
-    //   const { email, status } = req.body;
+    // check & set donor status from database
+    app.patch("/update/donor/status", verifyFbToken, async (req, res) => {
+      const { email, status } = req.body;
 
-    //   if (!email || !status) {
-    //     return res.status(400).send({ message: "Missing email or status" });
-    //   }
+      if (!email || !status) {
+        return res.status(400).send({ message: "Missing email or status" });
+      }
 
-    //   const query = { email };
-    //   const updateStatus = {
-    //     $set: { status },
-    //   };
+      const query = { email };
+      const updateStatus = {
+        $set: { status },
+      };
 
-    //   const result = await donorCollection.updateOne(query, updateStatus);
+      const result = await donorCollection.updateOne(query, updateStatus);
 
-    //   res.send(result);
-    // });
+      res.send(result);
+    });
 
     // get donor data from database by email
     app.get("/donor/role/:email", async (req, res) => {
