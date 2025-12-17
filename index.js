@@ -93,6 +93,30 @@ async function run() {
       res.send(result);
     });
 
+    //check and set role by admin
+    app.patch("/update/donor/role", verifyFbToken, async (req, res) => {
+      const { email, role } = req.body;
+
+      if (!email || !role) {
+        return res.status(400).send({ message: "Missing email or role" });
+      }
+
+      // Optional: Validate role values
+      const validRoles = ["Donor", "Volunteer", "Admin"];
+      if (!validRoles.includes(role)) {
+        return res.status(400).send({ message: "Invalid role" });
+      }
+
+      const query = { email };
+      const updateRole = {
+        $set: { role },
+      };
+
+      const result = await donorCollection.updateOne(query, updateRole);
+
+      res.send(result);
+    });
+
     // get donor data from database by email
     app.get("/donor/role/:email", async (req, res) => {
       const email = req.params.email;
