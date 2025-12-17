@@ -70,10 +70,10 @@ async function run() {
     });
 
     // get all donor data from database
-    // app.get("/donor", verifyFbToken, async (req, res) => {
-    //   const result = await donorCollection.find().toArray();
-    //   res.status(200).send(result);
-    // });
+    app.get("/donor", verifyFbToken, async (req, res) => {
+      const result = await donorCollection.find().toArray();
+      res.status(200).send(result);
+    });
 
     // check & set donor status from database
     app.patch("/update/donor/status", verifyFbToken, async (req, res) => {
