@@ -136,6 +136,29 @@ async function run() {
       res.send(result);
     });
 
+    // my requests data from database and pagination functions
+    app.get("/my-request", verifyFbToken, async (req, res) => {
+      const email = req.decoded_email;
+      const size = Number(req.query.size);
+      const page = Number(req.query.page);
+      const query = {
+        requester_email: email,
+      };
+
+      const result = await requestCollection
+        .find(query)
+        .limit(size)
+        .skip(size*page)
+        .toArray();
+
+        const totalRequest = await requestCollection.countDocuments(query);
+
+        // size = 10; second page er jnno = 1*10; third page er jnno = 2*10 =20
+
+
+      res.send({ request: result, totalRequest });
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
