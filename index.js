@@ -94,15 +94,15 @@ async function run() {
     // });
 
     // get donor data from database by email
-    // app.get("/donor/role/:email", async (req, res) => {
-    //   const email = req.params.email;
+    app.get("/donor/role/:email", async (req, res) => {
+      const email = req.params.email;
 
-    //   const query = { email: email };
-    //   const result = await donorCollection.findOne(query);
-    //   console.log(result);
+      const query = { email: email };
+      const result = await donorCollection.findOne(query);
+      console.log(result);
 
-    //   res.send(result);
-    // });
+      res.send(result);
+    });
 
     // add request data to database
     app.post("/requests", verifyFbToken, async (req, res) => {
