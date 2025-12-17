@@ -58,16 +58,16 @@ async function run() {
     const donorCollection = database.collection("Donors");
     const requestCollection = database.collection("Requests");
 
-    // // // insert donor data to database
-    // app.post("/donor", async (req, res) => {
-    //   const donorInfo = req.body;
-    //   donorInfo.createdAt = new Date();
-    //   donorInfo.role = "Donor";
-    //   donorInfo.status = "Active";
-    //   const result = await donorCollection.insertOne(donorInfo);
+    // // insert donor data to database
+    app.post("/donor", async (req, res) => {
+      const donorInfo = req.body;
+      donorInfo.createdAt = new Date();
+      donorInfo.role = "Donor";
+      donorInfo.status = "Active";
+      const result = await donorCollection.insertOne(donorInfo);
 
-    //   res.send(result);
-    // });
+      res.send(result);
+    });
 
     // get all donor data from database
     // app.get("/donor", verifyFbToken, async (req, res) => {
