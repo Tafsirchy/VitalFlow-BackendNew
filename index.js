@@ -325,6 +325,33 @@ async function run() {
       }
     );
 
+    // Get urgent/recent blood donation requests
+    app.get("/urgent-requests", async (req, res) => {
+      try {
+        const bloodGroup = req.query.bloodGroup || "all";
+
+        let query = {
+          donation_status: "pending", // Only show pending requests
+        };
+
+        if (bloodGroup !== "all") {
+          query.bloodGroup = bloodGroup;
+        }
+
+        const result = await requestCollection
+          .find(query)
+          .sort({ createdAt: -1 }) // Most recent first
+          .limit(4) // Only 4 requests
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ message: "Failed to fetch urgent requests", error });
+      }
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
