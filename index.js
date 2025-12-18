@@ -215,31 +215,31 @@ async function run() {
       }
     );
 
-    // // Delete donation request
-    // app.delete("/delete-request/:id", verifyFbToken, async (req, res) => {
-    //   try {
-    //     const { id } = req.params;
-    //     const email = req.decoded_email;
+    // Delete donation request
+    app.delete("/delete-request/:id", verifyFbToken, async (req, res) => {
+      try {
+        const { id } = req.params;
+        const email = req.decoded_email;
 
-    //     const { ObjectId } = require("mongodb");
-    //     const query = {
-    //       _id: new ObjectId(id),
-    //       requester_email: email, // Ensure user can only delete their own requests
-    //     };
+        const { ObjectId } = require("mongodb");
+        const query = {
+          _id: new ObjectId(id),
+          requester_email: email, // Ensure user can only delete their own requests
+        };
 
-    //     const result = await requestCollection.deleteOne(query);
+        const result = await requestCollection.deleteOne(query);
 
-    //     if (result.deletedCount === 0) {
-    //       return res
-    //         .status(404)
-    //         .send({ message: "Request not found or unauthorized" });
-    //     }
+        if (result.deletedCount === 0) {
+          return res
+            .status(404)
+            .send({ message: "Request not found or unauthorized" });
+        }
 
-    //     res.send(result);
-    //   } catch (error) {
-    //     res.status(500).send({ message: "Failed to delete request", error });
-    //   }
-    // });
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to delete request", error });
+      }
+    });
 
     // // Get all donation requests for admin (add this to your backend)
     // app.get("/all-requests", verifyFbToken, async (req, res) => {
