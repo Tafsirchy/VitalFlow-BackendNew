@@ -352,6 +352,76 @@ async function run() {
       }
     });
 
+    // Update password in database (called after Firebase password reset)
+    app.patch("/update-password", verifyFbToken, async (req, res) => {
+      try {
+        const email = req.decoded_email;
+        const { newPassword } = req.body;
+
+        if (!newPassword) {
+          return res.status(400).send({ message: "New password is required" });
+        }
+
+        // Validate password strength (optional but recommended)
+        if (newPassword.length < 8) {
+          return res.status(400).send({
+            message: "Password must be at least 8 characters long",
+          });
+        }
+
+        const query = { email };
+        const updatePassword = {
+          $set: {
+            password: newPassword,
+            passwordUpdatedAt: new Date(),
+          },
+        };
+
+        const result = await donorCollection.updateOne(query, updatePassword);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        res.send({
+          message: "Password updated successfully in database",
+          result,
+        });
+      } catch (error) {
+        console.error("Password update error:", error);
+        res.status(500).send({ message: "Failed to update password", error });
+      }
+    });
+
+    // Check if user exists before sending reset email
+   app.post("/check-user-exists", async (req, res) => {
+     try {
+       const { email } = req.body;
+
+       if (!email) {
+         return res.status(400).send({ message: "Email is required" });
+       }
+
+       const user = await donorCollection.findOne({ email });
+
+       // ✅ ALWAYS 200
+       if (!user) {
+         return res.send({
+           exists: false,
+           message: "No account found with this email",
+         });
+       }
+
+       res.send({
+         exists: true,
+         message: "User found",
+         name: user.name,
+       });
+     } catch (error) {
+       res.status(500).send({ message: "Failed to check user", error });
+     }
+   });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
