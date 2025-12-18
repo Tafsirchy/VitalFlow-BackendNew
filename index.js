@@ -432,8 +432,7 @@ async function run() {
           amount: session.amount_total / 100,
           currency: session.currency,
           donorEmail: session.customer_email,
-          donorName: 
-          transactionId,
+          donorName: transactionId,
           payment_status: session.payment_status,
           paidAt: new Date(),
         };
@@ -469,7 +468,7 @@ async function run() {
       res.send(result);
     });
 
-    Get all pending donation requests (PUBLIC - no authentication required)
+    // Get all pending donation requests (PUBLIC - no authentication required)
     app.get("/pending-donation-requests", async (req, res) => {
       try {
         const query = {
@@ -491,7 +490,54 @@ async function run() {
       }
     });
 
-    
+    // all fundings
+    app.get("/all-funding", async (req, res) => {
+      try {
+        const result = await paymentCollection
+          .find()
+          .sort({ paidAt: -1 }) // Most recent first
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Failed to fetch funding:", error);
+        res.status(500).send({
+          message: "Failed to fetch funding data",
+          error,
+        });
+      }
+    });
+
+    // Get total funding amount (for dashboard stats)
+    app.get("/total-funding", async (req, res) => {
+      try {
+        const result = await paymentCollection
+          .aggregate([
+            {
+              $group: {
+                _id: null,
+                totalAmount: { $sum: "$amount" },
+                totalDonations: { $sum: 1 },
+              },
+            },
+          ])
+          .toArray();
+
+        const totalFunding = result.length > 0 ? result[0].totalAmount : 0;
+        const totalDonations = result.length > 0 ? result[0].totalDonations : 0;
+
+        res.send({
+          totalAmount: totalFunding,
+          totalDonations: totalDonations,
+        });
+      } catch (error) {
+        console.error("Failed to fetch total funding:", error);
+        res.status(500).send({
+          message: "Failed to fetch total funding",
+          error,
+        });
+      }
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
