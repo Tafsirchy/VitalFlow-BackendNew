@@ -58,6 +58,7 @@ async function run() {
     const database = client.db("VitalFlow");
     const donorCollection = database.collection("Donors");
     const requestCollection = database.collection("Requests");
+    const paymentCollection = database.collection("Payments");
 
     // // insert donor data to database
     app.post("/donor", async (req, res) => {
@@ -353,85 +354,95 @@ async function run() {
       }
     });
 
-    // Update password in database (called after Firebase password reset)
-    app.patch("/update-password", verifyFbToken, async (req, res) => {
+    // Check if user exists before sending reset email
+    app.post("/check-user-exists", async (req, res) => {
       try {
-        const email = req.decoded_email;
-        const { newPassword } = req.body;
+        const { email } = req.body;
 
-        if (!newPassword) {
-          return res.status(400).send({ message: "New password is required" });
+        if (!email) {
+          return res.status(400).send({ message: "Email is required" });
         }
 
-        // Validate password strength (optional but recommended)
-        if (newPassword.length < 8) {
-          return res.status(400).send({
-            message: "Password must be at least 8 characters long",
+        const user = await donorCollection.findOne({ email });
+
+        // ✅ ALWAYS 200
+        if (!user) {
+          return res.send({
+            exists: false,
+            message: "No account found with this email",
           });
         }
 
-        const query = { email };
-        const updatePassword = {
-          $set: {
-            password: newPassword,
-            passwordUpdatedAt: new Date(),
-          },
-        };
-
-        const result = await donorCollection.updateOne(query, updatePassword);
-
-        if (result.matchedCount === 0) {
-          return res.status(404).send({ message: "User not found" });
-        }
-
         res.send({
-          message: "Password updated successfully in database",
-          result,
+          exists: true,
+          message: "User found",
+          name: user.name,
         });
       } catch (error) {
-        console.error("Password update error:", error);
-        res.status(500).send({ message: "Failed to update password", error });
+        res.status(500).send({ message: "Failed to check user", error });
       }
     });
 
-    // Check if user exists before sending reset email
-   app.post("/check-user-exists", async (req, res) => {
-     try {
-       const { email } = req.body;
+    // payment
+    app.post("/create-payment-checkout", async (req, res) => {
+      const information = req.body;
+      const amount = parseInt(information.donateAmount) * 100;
 
-       if (!email) {
-         return res.status(400).send({ message: "Email is required" });
-       }
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: "please donate",
+              },
+              unit_amount: amount,
+            },
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        metadata: {
+          donorName: information?.donorName,
+        },
+        customer_email: information.donorEmail,
+        success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.SITE_DOMAIN}/payment-cancelled`,
+      });
 
-       const user = await donorCollection.findOne({ email });
+      res.send({ url: session.url });
+    });
 
-       // ✅ ALWAYS 200
-       if (!user) {
-         return res.send({
-           exists: false,
-           message: "No account found with this email",
-         });
-       }
+    app.post("/success-payment", async(req, res) =>{
+      const {session_id} = req.query;
+      const session = await stripe.checkout.sessions.retrieve(
+        session_id
+      );
+      console.log(session);
 
-       res.send({
-         exists: true,
-         message: "User found",
-         name: user.name,
-       });
-     } catch (error) {
-       res.status(500).send({ message: "Failed to check user", error });
-     }
-   });
+      const transactionId = session.payment_intent;
 
-   // payment
-   app.post("/create-payment-checkout", async (req, res) => {
-     const information = req.body;
-     const amount = parseInt(information.amount) * 100;
+      const isPaymentExist = await paymentCollection.findOne({transactionId});
+      if(isPaymentExist){
+        
+        return res.status(400).send({message: "Payment already exist"});
+      }
 
+      if(session.payment_status == "paid"){
+        const paymentInfo = {
+          amount: session.amount_total/100,
+          currency: session.currency,
+          donorEmail: session.customer_email,
+          transactionId,
+          payment_status: session.payment_status,
+          paidAt: new Date(),
+        }
 
-
-
-   })
+        const result = await paymentCollection.insertOne(paymentInfo);
+        return res.send(result);
+      }
+      
+    })
 
     await client.db("admin").command({ ping: 1 });
     console.log(
