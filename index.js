@@ -158,7 +158,7 @@ async function run() {
       res.send({ request: result, totalRequest });
     });
 
-    Get recent 3 donation requests for dashboard
+    // Get recent 3 donation requests for dashboard
     app.get("/my-recent-requests", verifyFbToken, async (req, res) => {
       try {
         const email = req.decoded_email;
@@ -241,7 +241,7 @@ async function run() {
       }
     });
 
-    // Get all donation requests for admin 
+    // Get all donation requests for admin
     app.get("/all-requests", verifyFbToken, async (req, res) => {
       try {
         const size = Number(req.query.size);
@@ -284,6 +284,50 @@ async function run() {
         res.send(result);
       } catch (error) {
         res.status(500).send({ message: "Failed to delete request", error });
+      }
+    });
+
+    // Get all donation requests for admin (with donor info from Donors collection)
+    app.get("/all-requests", verifyFbToken, async (req, res) => {
+      try {
+        const size = Number(req.query.size);
+        const page = Number(req.query.page);
+        const filter = req.query.filter || "all";
+
+        let matchStage = {};
+        if (filter !== "all") {
+          matchStage.donation_status = filter;
+        }
+
+        const result = await requestCollection
+          .aggregate([
+            { $match: matchStage },
+            { $sort: { createdAt: -1 } },
+            { $skip: size * page },
+            { $limit: size },
+            {
+              $lookup: {
+                from: "Donors",
+                localField: "donor_email",
+                foreignField: "email",
+                as: "donorInfo",
+              },
+            },
+            {
+              $addFields: {
+                donor_name: { $arrayElemAt: ["$donorInfo.name", 0] },
+                donor_email: { $arrayElemAt: ["$donorInfo.email", 0] },
+              },
+            },
+            { $project: { donorInfo: 0 } },
+          ])
+          .toArray();
+
+        const totalRequest = await requestCollection.countDocuments(matchStage);
+
+        res.send({ request: result, totalRequest });
+      } catch (error) {
+        res.status(500).send({ message: "Failed to fetch requests", error });
       }
     });
 
