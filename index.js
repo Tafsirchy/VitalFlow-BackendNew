@@ -148,16 +148,144 @@ async function run() {
       const result = await requestCollection
         .find(query)
         .limit(size)
-        .skip(size*page)
+        .skip(size * page)
         .toArray();
 
-        const totalRequest = await requestCollection.countDocuments(query);
+      const totalRequest = await requestCollection.countDocuments(query);
 
-        // size = 10; second page er jnno = 1*10; third page er jnno = 2*10 =20
-
+      // size = 10; second page er jnno = 1*10; third page er jnno = 2*10 =20
 
       res.send({ request: result, totalRequest });
     });
+
+    // Get recent 3 donation requests for dashboard
+    // app.get("/my-recent-requests", verifyFbToken, async (req, res) => {
+    //   try {
+    //     const email = req.decoded_email;
+    //     const query = {
+    //       requester_email: email,
+    //     };
+
+    //     const result = await requestCollection
+    //       .find(query)
+    //       .sort({ createdAt: -1 }) // Sort by newest first
+    //       .limit(3) // Limit to 3 most recent
+    //       .toArray();
+
+    //     res.send(result);
+    //   } catch (error) {
+    //     res
+    //       .status(500)
+    //       .send({ message: "Failed to fetch recent requests", error });
+    //   }
+    // });
+
+    // // Update donation status (Done/Cancel)
+    // app.patch(
+    //   "/update-donation-status/:id",
+    //   verifyFbToken,
+    //   async (req, res) => {
+    //     try {
+    //       const { id } = req.params;
+    //       const { status } = req.body;
+
+    //       if (
+    //         !status ||
+    //         !["done", "canceled", "pending", "inprogress"].includes(status)
+    //       ) {
+    //         return res.status(400).send({ message: "Invalid status" });
+    //       }
+
+    //       const { ObjectId } = require("mongodb");
+    //       const query = { _id: new ObjectId(id) };
+    //       const updateStatus = {
+    //         $set: { donation_status: status },
+    //       };
+
+    //       const result = await requestCollection.updateOne(query, updateStatus);
+
+    //       if (result.matchedCount === 0) {
+    //         return res.status(404).send({ message: "Request not found" });
+    //       }
+
+    //       res.send(result);
+    //     } catch (error) {
+    //       res.status(500).send({ message: "Failed to update status", error });
+    //     }
+    //   }
+    // );
+
+    // // Delete donation request
+    // app.delete("/delete-request/:id", verifyFbToken, async (req, res) => {
+    //   try {
+    //     const { id } = req.params;
+    //     const email = req.decoded_email;
+
+    //     const { ObjectId } = require("mongodb");
+    //     const query = {
+    //       _id: new ObjectId(id),
+    //       requester_email: email, // Ensure user can only delete their own requests
+    //     };
+
+    //     const result = await requestCollection.deleteOne(query);
+
+    //     if (result.deletedCount === 0) {
+    //       return res
+    //         .status(404)
+    //         .send({ message: "Request not found or unauthorized" });
+    //     }
+
+    //     res.send(result);
+    //   } catch (error) {
+    //     res.status(500).send({ message: "Failed to delete request", error });
+    //   }
+    // });
+
+    // // Get all donation requests for admin (add this to your backend)
+    // app.get("/all-requests", verifyFbToken, async (req, res) => {
+    //   try {
+    //     const size = Number(req.query.size);
+    //     const page = Number(req.query.page);
+    //     const filter = req.query.filter || "all"; // all, pending, inprogress, done, canceled
+
+    //     let query = {};
+    //     if (filter !== "all") {
+    //       query.donation_status = filter;
+    //     }
+
+    //     const result = await requestCollection
+    //       .find(query)
+    //       .sort({ createdAt: -1 })
+    //       .limit(size)
+    //       .skip(size * page)
+    //       .toArray();
+
+    //     const totalRequest = await requestCollection.countDocuments(query);
+
+    //     res.send({ request: result, totalRequest });
+    //   } catch (error) {
+    //     res.status(500).send({ message: "Failed to fetch requests", error });
+    //   }
+    // });
+
+    // // Admin delete any request
+    // app.delete("/admin/delete-request/:id", verifyFbToken, async (req, res) => {
+    //   try {
+    //     const { id } = req.params;
+    //     const { ObjectId } = require("mongodb");
+    //     const query = { _id: new ObjectId(id) };
+
+    //     const result = await requestCollection.deleteOne(query);
+
+    //     if (result.deletedCount === 0) {
+    //       return res.status(404).send({ message: "Request not found" });
+    //     }
+
+    //     res.send(result);
+    //   } catch (error) {
+    //     res.status(500).send({ message: "Failed to delete request", error });
+    //   }
+    // });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
