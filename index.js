@@ -413,36 +413,85 @@ async function run() {
       res.send({ url: session.url });
     });
 
-    app.post("/success-payment", async(req, res) =>{
-      const {session_id} = req.query;
-      const session = await stripe.checkout.sessions.retrieve(
-        session_id
-      );
+    // success paymemnt
+
+    app.post("/success-payment", async (req, res) => {
+      const { session_id } = req.query;
+      const session = await stripe.checkout.sessions.retrieve(session_id);
       console.log(session);
 
       const transactionId = session.payment_intent;
 
-      const isPaymentExist = await paymentCollection.findOne({transactionId});
-      if(isPaymentExist){
-        
-        return res.status(400).send({message: "Payment already exist"});
+      const isPaymentExist = await paymentCollection.findOne({ transactionId });
+      if (isPaymentExist) {
+        return res.status(400).send({ message: "Payment already exist" });
       }
 
-      if(session.payment_status == "paid"){
+      if (session.payment_status == "paid") {
         const paymentInfo = {
-          amount: session.amount_total/100,
+          amount: session.amount_total / 100,
           currency: session.currency,
           donorEmail: session.customer_email,
+          donorName: 
           transactionId,
           payment_status: session.payment_status,
           paidAt: new Date(),
-        }
+        };
 
         const result = await paymentCollection.insertOne(paymentInfo);
         return res.send(result);
       }
-      
-    })
+    });
+
+    // search by filter
+    app.get("/search-requests", async (req, res) => {
+      let { bloodGroup, district, upazila } = req.query;
+
+      const query = {};
+
+      if (bloodGroup) {
+        // FIX: convert space back to +
+        bloodGroup = bloodGroup.replace(" ", "+");
+        query.bloodGroup = bloodGroup;
+      }
+
+      if (district) {
+        query.recipient_district = district;
+      }
+
+      if (upazila) {
+        query.recipient_upazila = upazila;
+      }
+
+      console.log(query);
+
+      const result = await requestCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // Get all pending donation requests (PUBLIC - no authentication required)
+    // app.get("/pending-donation-requests", async (req, res) => {
+    //   try {
+    //     const query = {
+    //       donation_status: "pending",
+    //     };
+
+    //     const result = await requestCollection
+    //       .find(query)
+    //       .sort({ createdAt: -1 }) // Most recent first
+    //       .toArray();
+
+    //     res.send(result);
+    //   } catch (error) {
+    //     console.error("Failed to fetch pending requests:", error);
+    //     res.status(500).send({
+    //       message: "Failed to fetch pending donation requests",
+    //       error,
+    //     });
+    //   }
+    // });
+
+    
 
     await client.db("admin").command({ ping: 1 });
     console.log(
