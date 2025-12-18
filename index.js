@@ -268,24 +268,24 @@ async function run() {
       }
     });
 
-    // // Admin delete any request
-    // app.delete("/admin/delete-request/:id", verifyFbToken, async (req, res) => {
-    //   try {
-    //     const { id } = req.params;
-    //     const { ObjectId } = require("mongodb");
-    //     const query = { _id: new ObjectId(id) };
+    // Admin delete any request
+    app.delete("/admin/delete-request/:id", verifyFbToken, async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { ObjectId } = require("mongodb");
+        const query = { _id: new ObjectId(id) };
 
-    //     const result = await requestCollection.deleteOne(query);
+        const result = await requestCollection.deleteOne(query);
 
-    //     if (result.deletedCount === 0) {
-    //       return res.status(404).send({ message: "Request not found" });
-    //     }
+        if (result.deletedCount === 0) {
+          return res.status(404).send({ message: "Request not found" });
+        }
 
-    //     res.send(result);
-    //   } catch (error) {
-    //     res.status(500).send({ message: "Failed to delete request", error });
-    //   }
-    // });
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to delete request", error });
+      }
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
