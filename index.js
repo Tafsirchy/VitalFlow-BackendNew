@@ -254,34 +254,54 @@ async function run() {
       }
     });
 
-    // Get all donation requests for admin with pagination and filter
-    app.get("/all-requests", verifyFbToken, verifyAdmin, async (req, res) => {
-      try {
-        const size = Number(req.query.size);
-        const page = Number(req.query.page);
-        const filter = req.query.filter || "all";
+    // Verify Admin or Volunteer middleware
+    const verifyAdminOrVolunteer = async (req, res, next) => {
+      const email = req.decoded_email;
 
-        let query = {};
-        if (filter !== "all") {
-          query.donation_status = filter;
-        }
+      const user = await donorCollection.findOne({ email });
 
-        const result = await requestCollection
-          .find(query)
-          .sort({ createdAt: -1 })
-          .limit(size)
-          .skip(size * page)
-          .toArray();
-
-        const totalRequest = await requestCollection.countDocuments(query);
-
-        res.send({ request: result, totalRequest });
-      } catch (error) {
-        res.status(500).send({ message: "Failed to fetch requests", error });
+      if (!user || (user.role !== "Admin" && user.role !== "Volunteer")) {
+        return res
+          .status(403)
+          .send({ message: "Forbidden: Admin or Volunteer only" });
       }
-    });
 
-    // Admin delete any request (no email restriction)
+      next();
+    };
+
+    // Get all donation requests (accessible by Admin and Volunteer)
+    app.get(
+      "/all-requests",
+      verifyFbToken,
+      verifyAdminOrVolunteer,
+      async (req, res) => {
+        try {
+          const size = Number(req.query.size);
+          const page = Number(req.query.page);
+          const filter = req.query.filter || "all";
+
+          let query = {};
+          if (filter !== "all") {
+            query.donation_status = filter;
+          }
+
+          const result = await requestCollection
+            .find(query)
+            .sort({ createdAt: -1 })
+            .limit(size)
+            .skip(size * page)
+            .toArray();
+
+          const totalRequest = await requestCollection.countDocuments(query);
+
+          res.send({ request: result, totalRequest });
+        } catch (error) {
+          res.status(500).send({ message: "Failed to fetch requests", error });
+        }
+      }
+    );
+
+    // Admin delete any request (Admin only)
     app.delete(
       "/admin/delete-request/:id",
       verifyFbToken,
