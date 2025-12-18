@@ -241,32 +241,32 @@ async function run() {
       }
     });
 
-    // // Get all donation requests for admin (add this to your backend)
-    // app.get("/all-requests", verifyFbToken, async (req, res) => {
-    //   try {
-    //     const size = Number(req.query.size);
-    //     const page = Number(req.query.page);
-    //     const filter = req.query.filter || "all"; // all, pending, inprogress, done, canceled
+    // Get all donation requests for admin 
+    app.get("/all-requests", verifyFbToken, async (req, res) => {
+      try {
+        const size = Number(req.query.size);
+        const page = Number(req.query.page);
+        const filter = req.query.filter || "all"; // all, pending, inprogress, done, canceled
 
-    //     let query = {};
-    //     if (filter !== "all") {
-    //       query.donation_status = filter;
-    //     }
+        let query = {};
+        if (filter !== "all") {
+          query.donation_status = filter;
+        }
 
-    //     const result = await requestCollection
-    //       .find(query)
-    //       .sort({ createdAt: -1 })
-    //       .limit(size)
-    //       .skip(size * page)
-    //       .toArray();
+        const result = await requestCollection
+          .find(query)
+          .sort({ createdAt: -1 })
+          .limit(size)
+          .skip(size * page)
+          .toArray();
 
-    //     const totalRequest = await requestCollection.countDocuments(query);
+        const totalRequest = await requestCollection.countDocuments(query);
 
-    //     res.send({ request: result, totalRequest });
-    //   } catch (error) {
-    //     res.status(500).send({ message: "Failed to fetch requests", error });
-    //   }
-    // });
+        res.send({ request: result, totalRequest });
+      } catch (error) {
+        res.status(500).send({ message: "Failed to fetch requests", error });
+      }
+    });
 
     // // Admin delete any request
     // app.delete("/admin/delete-request/:id", verifyFbToken, async (req, res) => {
