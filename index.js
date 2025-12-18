@@ -469,27 +469,27 @@ async function run() {
       res.send(result);
     });
 
-    // Get all pending donation requests (PUBLIC - no authentication required)
-    // app.get("/pending-donation-requests", async (req, res) => {
-    //   try {
-    //     const query = {
-    //       donation_status: "pending",
-    //     };
+    Get all pending donation requests (PUBLIC - no authentication required)
+    app.get("/pending-donation-requests", async (req, res) => {
+      try {
+        const query = {
+          donation_status: "pending",
+        };
 
-    //     const result = await requestCollection
-    //       .find(query)
-    //       .sort({ createdAt: -1 }) // Most recent first
-    //       .toArray();
+        const result = await requestCollection
+          .find(query)
+          .sort({ createdAt: -1 }) // Most recent first
+          .toArray();
 
-    //     res.send(result);
-    //   } catch (error) {
-    //     console.error("Failed to fetch pending requests:", error);
-    //     res.status(500).send({
-    //       message: "Failed to fetch pending donation requests",
-    //       error,
-    //     });
-    //   }
-    // });
+        res.send(result);
+      } catch (error) {
+        console.error("Failed to fetch pending requests:", error);
+        res.status(500).send({
+          message: "Failed to fetch pending donation requests",
+          error,
+        });
+      }
+    });
 
     
 
