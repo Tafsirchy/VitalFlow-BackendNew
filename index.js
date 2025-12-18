@@ -393,9 +393,7 @@ async function run() {
           {
             price_data: {
               currency: "usd",
-              product_data: {
-                name: "please donate",
-              },
+              product_data: { name: "Organization Fund Donation" },
               unit_amount: amount,
             },
             quantity: 1,
@@ -403,7 +401,8 @@ async function run() {
         ],
         mode: "payment",
         metadata: {
-          donorName: information?.donorName,
+          donorName: information?.donorName || "Anonymous",
+          donorEmail: information?.donorEmail || "", // Add this too
         },
         customer_email: information.donorEmail,
         success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
@@ -414,11 +413,14 @@ async function run() {
     });
 
     // success paymemnt
-
+    // success payment
     app.post("/success-payment", async (req, res) => {
       const { session_id } = req.query;
-      const session = await stripe.checkout.sessions.retrieve(session_id);
-      console.log(session);
+
+      // Expand metadata to get custom fields
+      const session = await stripe.checkout.sessions.retrieve(session_id, {
+        expand: ["customer"],
+      });
 
       const transactionId = session.payment_intent;
 
@@ -427,19 +429,64 @@ async function run() {
         return res.status(400).send({ message: "Payment already exist" });
       }
 
-      if (session.payment_status == "paid") {
+      if (session.payment_status === "paid") {
+        // Log to debug
+        console.log("Session metadata:", session.metadata);
+        console.log("Donor name from metadata:", session.metadata?.donorName);
+
         const paymentInfo = {
           amount: session.amount_total / 100,
           currency: session.currency,
           donorEmail: session.customer_email,
-          donorName: transactionId,
-          payment_status: session.payment_status,
+          donorName: session.metadata?.donorName || "Anonymous", // This should now work
+          transactionId,
+          payment_status: "paid",
           paidAt: new Date(),
         };
+
+        console.log("Payment info being saved:", paymentInfo); // Debug log
 
         const result = await paymentCollection.insertOne(paymentInfo);
         return res.send(result);
       }
+    });
+
+    // all fundings
+    app.get("/all-funding", async (req, res) => {
+      try {
+        const result = await paymentCollection
+          .find()
+          .sort({ paidAt: -1 }) // Most recent first
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Failed to fetch funding:", error);
+        res.status(500).send({
+          message: "Failed to fetch funding data",
+          error,
+        });
+      }
+    });
+
+    // Get total funding amount (for dashboard stats)
+    app.get("/total-funding", async (req, res) => {
+      const result = await paymentCollection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              totalAmount: { $sum: "$amount" },
+              totalDonations: { $sum: 1 },
+            },
+          },
+        ])
+        .toArray();
+
+      res.send({
+        totalAmount: result[0]?.totalAmount || 0,
+        totalDonations: result[0]?.totalDonations || 0,
+      });
     });
 
     // search by filter
@@ -490,54 +537,69 @@ async function run() {
       }
     });
 
-    // all fundings
-    app.get("/all-funding", async (req, res) => {
-      try {
-        const result = await paymentCollection
-          .find()
-          .sort({ paidAt: -1 }) // Most recent first
-          .toArray();
-
-        res.send(result);
-      } catch (error) {
-        console.error("Failed to fetch funding:", error);
-        res.status(500).send({
-          message: "Failed to fetch funding data",
-          error,
-        });
-      }
+    // details
+    app.get("/requests/:id", async (req, res) => {
+      const { ObjectId } = require("mongodb");
+      const query = { _id: new ObjectId(req.params.id) };
+      const result = await requestCollection.findOne(query);
+      res.send(result);
     });
 
-    // Get total funding amount (for dashboard stats)
-    app.get("/total-funding", async (req, res) => {
-      try {
-        const result = await paymentCollection
-          .aggregate([
+    app.patch(
+      "/update-donation-status/:id",
+      verifyFbToken,
+      async (req, res) => {
+        try {
+          const { ObjectId } = require("mongodb");
+          const { status } = req.body;
+          const email = req.decoded_email;
+
+          if (!["pending", "inprogress", "done", "canceled"].includes(status)) {
+            return res.status(400).send({ message: "Invalid status" });
+          }
+
+          const request = await requestCollection.findOne({
+            _id: new ObjectId(req.params.id),
+          });
+
+          if (!request) {
+            return res.status(404).send({ message: "Request not found" });
+          }
+
+          // ❌ Prevent self-donation
+          if (request.requester_email === email) {
+            return res
+              .status(403)
+              .send({ message: "You cannot donate to your own request" });
+          }
+
+          // ❌ Prevent double donation
+          if (request.donation_status !== "pending") {
+            return res
+              .status(400)
+              .send({ message: "Donation already accepted" });
+          }
+
+          const result = await requestCollection.updateOne(
+            { _id: new ObjectId(req.params.id) },
             {
-              $group: {
-                _id: null,
-                totalAmount: { $sum: "$amount" },
-                totalDonations: { $sum: 1 },
+              $set: {
+                donation_status: status,
+                donor_email: email,
+                donor_name: req.decoded_name || "Anonymous",
               },
-            },
-          ])
-          .toArray();
+            }
+          );
 
-        const totalFunding = result.length > 0 ? result[0].totalAmount : 0;
-        const totalDonations = result.length > 0 ? result[0].totalDonations : 0;
-
-        res.send({
-          totalAmount: totalFunding,
-          totalDonations: totalDonations,
-        });
-      } catch (error) {
-        console.error("Failed to fetch total funding:", error);
-        res.status(500).send({
-          message: "Failed to fetch total funding",
-          error,
-        });
+          res.send(result);
+        } catch (error) {
+          res.status(500).send({
+            message: "Failed to update donation status",
+            error,
+          });
+        }
       }
-    });
+    );
 
     await client.db("admin").command({ ping: 1 });
     console.log(
