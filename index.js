@@ -93,6 +93,19 @@ async function run() {
       res.send(result);
     });
 
+    // verify admin
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded_email;
+
+      const user = await donorCollection.findOne({ email });
+
+      if (!user || user.role !== "Admin") {
+        return res.status(403).send({ message: "Forbidden: Admin only" });
+      }
+
+      next();
+    };
+
     //check and set role by admin
     app.patch("/update/donor/role", verifyFbToken, async (req, res) => {
       const { email, role } = req.body;
@@ -241,12 +254,12 @@ async function run() {
       }
     });
 
-    // Get all donation requests for admin
-    app.get("/all-requests", verifyFbToken, async (req, res) => {
+    // Get all donation requests for admin with pagination and filter
+    app.get("/all-requests", verifyFbToken, verifyAdmin, async (req, res) => {
       try {
         const size = Number(req.query.size);
         const page = Number(req.query.page);
-        const filter = req.query.filter || "all"; // all, pending, inprogress, done, canceled
+        const filter = req.query.filter || "all";
 
         let query = {};
         if (filter !== "all") {
@@ -268,68 +281,29 @@ async function run() {
       }
     });
 
-    // Admin delete any request
-    app.delete("/admin/delete-request/:id", verifyFbToken, async (req, res) => {
-      try {
-        const { id } = req.params;
-        const { ObjectId } = require("mongodb");
-        const query = { _id: new ObjectId(id) };
+    // Admin delete any request (no email restriction)
+    app.delete(
+      "/admin/delete-request/:id",
+      verifyFbToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const { id } = req.params;
+          const { ObjectId } = require("mongodb");
+          const query = { _id: new ObjectId(id) };
 
-        const result = await requestCollection.deleteOne(query);
+          const result = await requestCollection.deleteOne(query);
 
-        if (result.deletedCount === 0) {
-          return res.status(404).send({ message: "Request not found" });
+          if (result.deletedCount === 0) {
+            return res.status(404).send({ message: "Request not found" });
+          }
+
+          res.send(result);
+        } catch (error) {
+          res.status(500).send({ message: "Failed to delete request", error });
         }
-
-        res.send(result);
-      } catch (error) {
-        res.status(500).send({ message: "Failed to delete request", error });
       }
-    });
-
-    // Get all donation requests for admin (with donor info from Donors collection)
-    app.get("/all-requests", verifyFbToken, async (req, res) => {
-      try {
-        const size = Number(req.query.size);
-        const page = Number(req.query.page);
-        const filter = req.query.filter || "all";
-
-        let matchStage = {};
-        if (filter !== "all") {
-          matchStage.donation_status = filter;
-        }
-
-        const result = await requestCollection
-          .aggregate([
-            { $match: matchStage },
-            { $sort: { createdAt: -1 } },
-            { $skip: size * page },
-            { $limit: size },
-            {
-              $lookup: {
-                from: "Donors",
-                localField: "donor_email",
-                foreignField: "email",
-                as: "donorInfo",
-              },
-            },
-            {
-              $addFields: {
-                donor_name: { $arrayElemAt: ["$donorInfo.name", 0] },
-                donor_email: { $arrayElemAt: ["$donorInfo.email", 0] },
-              },
-            },
-            { $project: { donorInfo: 0 } },
-          ])
-          .toArray();
-
-        const totalRequest = await requestCollection.countDocuments(matchStage);
-
-        res.send({ request: result, totalRequest });
-      } catch (error) {
-        res.status(500).send({ message: "Failed to fetch requests", error });
-      }
-    });
+    );
 
     await client.db("admin").command({ ping: 1 });
     console.log(
