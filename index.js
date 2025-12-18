@@ -158,62 +158,62 @@ async function run() {
       res.send({ request: result, totalRequest });
     });
 
-    // Get recent 3 donation requests for dashboard
-    // app.get("/my-recent-requests", verifyFbToken, async (req, res) => {
-    //   try {
-    //     const email = req.decoded_email;
-    //     const query = {
-    //       requester_email: email,
-    //     };
+    Get recent 3 donation requests for dashboard
+    app.get("/my-recent-requests", verifyFbToken, async (req, res) => {
+      try {
+        const email = req.decoded_email;
+        const query = {
+          requester_email: email,
+        };
 
-    //     const result = await requestCollection
-    //       .find(query)
-    //       .sort({ createdAt: -1 }) // Sort by newest first
-    //       .limit(3) // Limit to 3 most recent
-    //       .toArray();
+        const result = await requestCollection
+          .find(query)
+          .sort({ createdAt: -1 }) // Sort by newest first
+          .limit(3) // Limit to 3 most recent
+          .toArray();
 
-    //     res.send(result);
-    //   } catch (error) {
-    //     res
-    //       .status(500)
-    //       .send({ message: "Failed to fetch recent requests", error });
-    //   }
-    // });
+        res.send(result);
+      } catch (error) {
+        res
+          .status(500)
+          .send({ message: "Failed to fetch recent requests", error });
+      }
+    });
 
-    // // Update donation status (Done/Cancel)
-    // app.patch(
-    //   "/update-donation-status/:id",
-    //   verifyFbToken,
-    //   async (req, res) => {
-    //     try {
-    //       const { id } = req.params;
-    //       const { status } = req.body;
+    // Update donation status (Done/Cancel)
+    app.patch(
+      "/update-donation-status/:id",
+      verifyFbToken,
+      async (req, res) => {
+        try {
+          const { id } = req.params;
+          const { status } = req.body;
 
-    //       if (
-    //         !status ||
-    //         !["done", "canceled", "pending", "inprogress"].includes(status)
-    //       ) {
-    //         return res.status(400).send({ message: "Invalid status" });
-    //       }
+          if (
+            !status ||
+            !["done", "canceled", "pending", "inprogress"].includes(status)
+          ) {
+            return res.status(400).send({ message: "Invalid status" });
+          }
 
-    //       const { ObjectId } = require("mongodb");
-    //       const query = { _id: new ObjectId(id) };
-    //       const updateStatus = {
-    //         $set: { donation_status: status },
-    //       };
+          const { ObjectId } = require("mongodb");
+          const query = { _id: new ObjectId(id) };
+          const updateStatus = {
+            $set: { donation_status: status },
+          };
 
-    //       const result = await requestCollection.updateOne(query, updateStatus);
+          const result = await requestCollection.updateOne(query, updateStatus);
 
-    //       if (result.matchedCount === 0) {
-    //         return res.status(404).send({ message: "Request not found" });
-    //       }
+          if (result.matchedCount === 0) {
+            return res.status(404).send({ message: "Request not found" });
+          }
 
-    //       res.send(result);
-    //     } catch (error) {
-    //       res.status(500).send({ message: "Failed to update status", error });
-    //     }
-    //   }
-    // );
+          res.send(result);
+        } catch (error) {
+          res.status(500).send({ message: "Failed to update status", error });
+        }
+      }
+    );
 
     // // Delete donation request
     // app.delete("/delete-request/:id", verifyFbToken, async (req, res) => {
