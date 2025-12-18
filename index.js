@@ -1,9 +1,10 @@
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const express = require("express");
 const cors = require("cors");
-
 require("dotenv").config();
 const port = process.env.PORT || 3000;
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
+const crypto = require("crypto");
 
 const app = express();
 app.use(cors());
@@ -421,6 +422,16 @@ async function run() {
        res.status(500).send({ message: "Failed to check user", error });
      }
    });
+
+   // payment
+   app.post("/create-payment-checkout", async (req, res) => {
+     const information = req.body;
+     const amount = parseInt(information.amount) * 100;
+
+
+
+
+   })
 
     await client.db("admin").command({ ping: 1 });
     console.log(
