@@ -30,7 +30,7 @@ const verifyFbToken = async (req, res, next) => {
   try {
     const idToken = token.split(" ")[1];
     const decoded = await admin.auth().verifyIdToken(idToken);
-    console.log("Decoded info", decoded);
+    // console.log("Decoded info", decoded);
     req.decoded_email = decoded.email;
     next();
   } catch (error) {
@@ -52,7 +52,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
 
     const database = client.db("VitalFlow");
@@ -60,7 +60,7 @@ async function run() {
     const requestCollection = database.collection("Requests");
     const paymentCollection = database.collection("Payments");
 
-    // // insert donor data to database
+    // insert donor data to database
     app.post("/donor", async (req, res) => {
       const donorInfo = req.body;
       donorInfo.createdAt = new Date();
@@ -116,7 +116,7 @@ async function run() {
         return res.status(400).send({ message: "Missing email or role" });
       }
 
-      // Optional: Validate role values
+      // validate role values
       const validRoles = ["Donor", "Volunteer", "Admin"];
       if (!validRoles.includes(role)) {
         return res.status(400).send({ message: "Invalid role" });
@@ -138,7 +138,7 @@ async function run() {
 
       const query = { email: email };
       const result = await donorCollection.findOne(query);
-      console.log(result);
+      // console.log(result);
 
       res.send(result);
     });
@@ -183,8 +183,8 @@ async function run() {
 
         const result = await requestCollection
           .find(query)
-          .sort({ createdAt: -1 }) // Sort by newest first
-          .limit(3) // Limit to 3 most recent
+          .sort({ createdAt: -1 })
+          .limit(3)
           .toArray();
 
         res.send(result);
@@ -195,7 +195,7 @@ async function run() {
       }
     });
 
-    // Update donation status (Done/Cancel)
+    // Update donation status done or cancel
     app.patch(
       "/update-donation-status/:id",
       verifyFbToken,
@@ -239,7 +239,7 @@ async function run() {
         const { ObjectId } = require("mongodb");
         const query = {
           _id: new ObjectId(id),
-          requester_email: email, // Ensure user can only delete their own requests
+          requester_email: email,
         };
 
         const result = await requestCollection.deleteOne(query);
@@ -303,7 +303,7 @@ async function run() {
       }
     );
 
-    // Admin delete any request (Admin only)
+    // admin delete any request (admin only)
     app.delete(
       "/admin/delete-request/:id",
       verifyFbToken,
@@ -333,7 +333,7 @@ async function run() {
         const bloodGroup = req.query.bloodGroup || "all";
 
         let query = {
-          donation_status: "pending", // Only show pending requests
+          donation_status: "pending",
         };
 
         if (bloodGroup !== "all") {
@@ -342,8 +342,8 @@ async function run() {
 
         const result = await requestCollection
           .find(query)
-          .sort({ createdAt: -1 }) // Most recent first
-          .limit(4) // Only 4 requests
+          .sort({ createdAt: -1 })
+          .limit(4)
           .toArray();
 
         res.send(result);
@@ -351,35 +351,6 @@ async function run() {
         res
           .status(500)
           .send({ message: "Failed to fetch urgent requests", error });
-      }
-    });
-
-    // Check if user exists before sending reset email
-    app.post("/check-user-exists", async (req, res) => {
-      try {
-        const { email } = req.body;
-
-        if (!email) {
-          return res.status(400).send({ message: "Email is required" });
-        }
-
-        const user = await donorCollection.findOne({ email });
-
-        // ✅ ALWAYS 200
-        if (!user) {
-          return res.send({
-            exists: false,
-            message: "No account found with this email",
-          });
-        }
-
-        res.send({
-          exists: true,
-          message: "User found",
-          name: user.name,
-        });
-      } catch (error) {
-        res.status(500).send({ message: "Failed to check user", error });
       }
     });
 
@@ -402,7 +373,7 @@ async function run() {
         mode: "payment",
         metadata: {
           donorName: information?.donorName || "Anonymous",
-          donorEmail: information?.donorEmail || "", // Add this too
+          donorEmail: information?.donorEmail || "",
         },
         customer_email: information.donorEmail,
         success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
@@ -412,16 +383,11 @@ async function run() {
       res.send({ url: session.url });
     });
 
-    // success paymemnt
     // success payment
     app.post("/success-payment", async (req, res) => {
       const { session_id } = req.query;
 
-      // Expand metadata to get custom fields
-      const session = await stripe.checkout.sessions.retrieve(session_id, {
-        expand: ["customer"],
-      });
-
+      const session = await stripe.checkout.sessions.retrieve(session_id);
       const transactionId = session.payment_intent;
 
       const isPaymentExist = await paymentCollection.findOne({ transactionId });
@@ -430,21 +396,19 @@ async function run() {
       }
 
       if (session.payment_status === "paid") {
-        // Log to debug
-        console.log("Session metadata:", session.metadata);
-        console.log("Donor name from metadata:", session.metadata?.donorName);
+        const donorEmail = session.customer_email;
+
+        const donor = await donorCollection.findOne({ email: donorEmail });
 
         const paymentInfo = {
           amount: session.amount_total / 100,
           currency: session.currency,
-          donorEmail: session.customer_email,
-          donorName: session.metadata?.donorName || "Anonymous", // This should now work
+          donorEmail,
+          donorName: donor?.name || "Anonymous",
           transactionId,
           payment_status: "paid",
           paidAt: new Date(),
         };
-
-        console.log("Payment info being saved:", paymentInfo); // Debug log
 
         const result = await paymentCollection.insertOne(paymentInfo);
         return res.send(result);
@@ -456,7 +420,7 @@ async function run() {
       try {
         const result = await paymentCollection
           .find()
-          .sort({ paidAt: -1 }) // Most recent first
+          .sort({ paidAt: -1 })
           .toArray();
 
         res.send(result);
@@ -509,13 +473,13 @@ async function run() {
         query.recipient_upazila = upazila;
       }
 
-      console.log(query);
+      // console.log(query);
 
       const result = await requestCollection.find(query).toArray();
       res.send(result);
     });
 
-    // Get all pending donation requests (PUBLIC - no authentication required)
+    // Get all pending donation requests
     app.get("/pending-donation-requests", async (req, res) => {
       try {
         const query = {
@@ -524,7 +488,7 @@ async function run() {
 
         const result = await requestCollection
           .find(query)
-          .sort({ createdAt: -1 }) // Most recent first
+          .sort({ createdAt: -1 })
           .toArray();
 
         res.send(result);
@@ -566,14 +530,12 @@ async function run() {
             return res.status(404).send({ message: "Request not found" });
           }
 
-          // ❌ Prevent self-donation
           if (request.requester_email === email) {
             return res
               .status(403)
               .send({ message: "You cannot donate to your own request" });
           }
 
-          // ❌ Prevent double donation
           if (request.donation_status !== "pending") {
             return res
               .status(400)
@@ -601,7 +563,45 @@ async function run() {
       }
     );
 
-    await client.db("admin").command({ ping: 1 });
+    app.patch("/donor/update/:email", verifyFbToken, async (req, res) => {
+      try {
+        const { email } = req.params;
+        const { name, mainPhotoUrl, blood, district, upazila } = req.body;
+
+        if (req.decoded_email !== email) {
+          return res.status(403).send({ message: "Forbidden access" });
+        }
+
+        if (!name || !blood || !district || !upazila) {
+          return res.status(400).send({ message: "Missing required fields" });
+        }
+
+        const updateDoc = {
+          $set: {
+            name,
+            blood,
+            district,
+            upazila,
+            ...(mainPhotoUrl && { mainPhotoUrl }),
+            updatedAt: new Date(),
+          },
+        };
+
+        const result = await donorCollection.updateOne({ email }, updateDoc);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        res.send({ success: true });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Update failed" });
+      }
+    });
+
+
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
