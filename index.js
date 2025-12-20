@@ -383,37 +383,47 @@ async function run() {
       res.send({ url: session.url });
     });
 
-    // success payment
-    app.post("/success-payment", async (req, res) => {
-      const { session_id } = req.query;
+    app.get("/success-payment", async (req, res) => {
+      try {
+        const { session_id } = req.query;
 
-      const session = await stripe.checkout.sessions.retrieve(session_id);
-      const transactionId = session.payment_intent;
+        if (!session_id) {
+          return res.status(400).send({ message: "Session ID missing" });
+        }
 
-      const isPaymentExist = await paymentCollection.findOne({ transactionId });
-      if (isPaymentExist) {
-        return res.status(400).send({ message: "Payment already exist" });
-      }
+        const session = await stripe.checkout.sessions.retrieve(session_id);
 
-      if (session.payment_status === "paid") {
-        const donorEmail = session.customer_email;
+        if (session.payment_status !== "paid") {
+          return res.status(400).send({ message: "Payment not completed" });
+        }
 
-        const donor = await donorCollection.findOne({ email: donorEmail });
+        const transactionId = session.payment_intent;
+
+        const isPaymentExist = await paymentCollection.findOne({
+          transactionId,
+        });
+        if (isPaymentExist) {
+          return res.send({ message: "Payment already saved" });
+        }
 
         const paymentInfo = {
           amount: session.amount_total / 100,
           currency: session.currency,
-          donorEmail,
-          donorName: donor?.name || "Anonymous",
+          donorEmail: session.customer_email,
+          donorName: session.metadata?.donorName || "Anonymous",
           transactionId,
           payment_status: "paid",
           paidAt: new Date(),
         };
 
         const result = await paymentCollection.insertOne(paymentInfo);
-        return res.send(result);
+        res.send({ success: true, result });
+      } catch (error) {
+        console.error("Payment error:", error);
+        res.status(500).send({ message: "Payment verification failed" });
       }
     });
+
 
     // all fundings
     app.get("/all-funding", async (req, res) => {
