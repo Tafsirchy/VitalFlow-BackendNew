@@ -1,3 +1,6 @@
+const dns = require("dns");
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const express = require("express");
 const cors = require("cors");
@@ -471,6 +474,36 @@ async function run() {
 
       const result = await requestCollection.find(query).toArray();
       res.send(result);
+    });
+
+    // search donors by filter (public)
+    app.get("/search-donors", async (req, res) => {
+      try {
+        let { bloodGroup, district, upazila } = req.query;
+
+        const query = { status: { $ne: "Blocked" } };
+
+        if (bloodGroup) {
+          bloodGroup = bloodGroup.replace(" ", "+");
+          query.$or = [{ blood: bloodGroup }, { bloodGroup: bloodGroup }];
+        }
+
+        if (district) {
+          query.district = district;
+        }
+
+        if (upazila) {
+          query.upazila = upazila;
+        }
+
+        const result = await donorCollection
+          .find(query, { projection: { password: 0 } })
+          .toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error searching donors:", error);
+        res.status(500).send({ message: "Failed to search donors" });
+      }
     });
 
     // Get all pending donation requests
